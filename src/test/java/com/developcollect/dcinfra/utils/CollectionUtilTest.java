@@ -1,6 +1,5 @@
 package com.developcollect.dcinfra.utils;
 
-import cn.hutool.core.util.RandomUtil;
 import org.junit.Test;
 
 import java.util.ArrayList;
@@ -34,7 +33,7 @@ public class CollectionUtilTest {
         shuffle(list2);
 
 
-        List<Map<String, String>> maps = shadowSort2(list1, map -> map.get("i"), list2, map -> map.get("i"));
+        List<Map<String, String>> maps = shadowSort(list1, map -> map.get("i"), list2, map -> map.get("i"));
 
         assertEquals(list2.get(0).get("i"), "3");
         assertEquals(list2.get(1).get("i"), "4");
