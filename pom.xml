@@ -22,9 +22,9 @@
         </license>
     </licenses>
     <scm>
-        <connection>https://github.com/developcollect/common-pay.git</connection>
-        <developerConnection>scm:git@github.com:developcollect/common-pay.git</developerConnection>
-        <url>https://github.com/developcollect/common-pay</url>
+        <connection>https://github.com/developcollect/dc-infra.git</connection>
+        <developerConnection>scm:git@github.com:developcollect/dc-infra.git</developerConnection>
+        <url>https://github.com/developcollect/dc-infra</url>
     </scm>
     <developers>
         <developer>
