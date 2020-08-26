@@ -5,6 +5,8 @@ import com.google.common.collect.Maps;
 import lombok.extern.slf4j.Slf4j;
 import net.sf.cglib.beans.BeanGenerator;
 import net.sf.cglib.beans.BeanMap;
+import net.sf.cglib.proxy.Enhancer;
+import net.sf.cglib.proxy.MethodInterceptor;
 
 import java.util.Map;
 
@@ -39,6 +41,31 @@ public class CglibUtil {
         BeanUtil.copyProperties(dest, target);
 
         return target;
+    }
+
+
+    /**
+     * 生成动态代理, 并将原有的成员属性复制到代理对象
+     * @param target
+     * @param methodInterceptor
+     * @return T 类型
+     * @author zak
+     * @date 2020/8/26 10:22
+     */
+    public static <T> T proxy(T target, MethodInterceptor methodInterceptor) {
+        // 创建Enhancer对象
+        Enhancer enhancer = new Enhancer();
+        // 设置目标类的字节码文件
+        enhancer.setSuperclass(target.getClass());
+        // 设置回调函数
+        enhancer.setCallback(methodInterceptor);
+
+        // 这里的creat方法就是正式创建代理类对象
+        T proxy = (T) enhancer.create();
+
+        // 复制原有属性到代理对象
+        BeanUtil.copyProperties(target, proxy);
+        return proxy;
     }
 
     private static class DynamicBean {
