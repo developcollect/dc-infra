@@ -5,7 +5,9 @@ import net.sf.cglib.proxy.MethodInterceptor;
 import net.sf.cglib.proxy.MethodProxy;
 import org.junit.Test;
 
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
+import java.lang.reflect.Parameter;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -17,7 +19,7 @@ public class CglibUtilTest {
         Map<String, String> map = new HashMap<>();
 
         map.put("test", "hahahah");
-        Person person = new Person();
+        Person person = new Person(5);
         person.setAge(45);
 
 
@@ -33,7 +35,7 @@ public class CglibUtilTest {
     @Test
     public void testt2() {
 
-        Person person = new Person();
+        Person person = new Person(5);
         person.setAge(45);
         person.setName("旺旺");
 
@@ -54,6 +56,19 @@ public class CglibUtilTest {
         System.out.println(o.getName());
     }
 
+
+    @Test
+    public void test3() {
+        Class<Person> personClass = Person.class;
+        Constructor<?>[] constructors = personClass.getConstructors();
+        for (Constructor<?> constructor : constructors) {
+            Parameter[] parameters = constructor.getParameters();
+            for (Parameter parameter : parameters) {
+                boolean varArgs = parameter.isVarArgs();
+            }
+//            constructor.
+        }
+    }
 }
 
 
@@ -62,7 +77,21 @@ class Person {
 
     private int age;
 
+    private int mm;
+
     private String name;
 
 
+    public Person(int age) {
+        this.age = age;
+    }
+
+    public Person(String name) {
+        this.name = name;
+    }
+
+    public Person(int age, String name) {
+        this.age = age;
+        this.name = name;
+    }
 }

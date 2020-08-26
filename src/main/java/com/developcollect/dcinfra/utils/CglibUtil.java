@@ -61,11 +61,17 @@ public class CglibUtil {
         enhancer.setCallback(methodInterceptor);
 
         // 这里的creat方法就是正式创建代理类对象
+        // todo 自动判断使用哪个构造方法
         T proxy = (T) enhancer.create();
 
         // 复制原有属性到代理对象
         BeanUtil.copyProperties(target, proxy);
         return proxy;
+    }
+
+
+    private static void test() {
+
     }
 
     private static class DynamicBean {
