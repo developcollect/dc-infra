@@ -18,6 +18,7 @@ public class SocialUtil {
 
     private static final String WEIXIN_ACCESS_TOKEN_URL = "https://api.weixin.qq.com/sns/oauth2/access_token?appid=%s&secret=%s&code=%s&grant_type=authorization_code";
     private static final String WEIXIN_USER_INFO_URL = "https://api.weixin.qq.com/sns/userinfo?access_token=%s&openid=%s";
+    private static final String WEIXIN_OPEN_ACCESS_TOKEN_URL = "https://api.weixin.qq.com/sns/oauth2/component/access_token?appid=%s&code=%s&grant_type=authorization_code&component_appid=%s&component_access_token=%s";
 
     private static final String QQ_ACCESS_TOKEN_URL = "https://graph.qq.com/oauth2.0/token?grant_type=authorization_code&client_id=%s&client_secret=%s&code=%s&redirect_uri=%s&fmt=json";
     private static final String QQ_OPEN_ID_URL = "https://graph.qq.com/oauth2.0/me?access_token=%s&fmt=json";
@@ -35,7 +36,6 @@ public class SocialUtil {
      * @param appid
      * @param appSecret
      * @param code
-     * @return com.jeecms.market.utils.social.SocialUserInfo
      * @author Zhu Kaixiao
      * @date 2020/6/28 15:19
      */
@@ -71,8 +71,71 @@ public class SocialUtil {
         return socialUserInfo;
     }
 
+    /**
+     * 微信开发平台代公众号获取用户信息
+     *
+     * @param appid                公众号appid
+     * @param code                 授权码
+     * @param componentAppId       开放平台appid
+     * @param componentAccessToken 开放平台token
+     * @author Zhu Kaixiao
+     * @date 2020/8/28 15:05
+     */
+    public static SocialUserInfo getWeiXinUid(String appid, String code, String componentAppId, String componentAccessToken) {
+
+        String accessTokenRet;
+        try {
+            String accessTokenUrl = String.format(WEIXIN_OPEN_ACCESS_TOKEN_URL, appid, code, componentAppId, componentAccessToken);
+            accessTokenRet = HttpUtil.get(accessTokenUrl);
+        } catch (Exception e) {
+            log.error("获取微信用户token失败", e);
+            throw new RuntimeException("获取微信用户token失败", e);
+        }
+
+        Map<String, Object> accessTokenMap;
+        try {
+            accessTokenMap = JSONObject.parseObject(accessTokenRet, HashMap.class);
+        } catch (Exception e) {
+            log.error("解析json失败", e);
+            throw new RuntimeException("解析json失败", e);
+        }
+
+        // 微信接口调用报错
+        if (accessTokenMap.containsKey("errcode")) {
+            log.error("获取微信用户唯一id失败: errcode: [{}], errmsg: [{}]", accessTokenMap.get("errcode"), accessTokenMap.get("errmsg"));
+            throw new RuntimeException(accessTokenMap.get("errmsg").toString());
+        }
+
+
+        accessTokenMap.put("appid", appid);
+        accessTokenMap.put("unionid", accessTokenMap.get("openid"));
+        SocialUserInfo socialUserInfo = parseMapToSocialUserInfo(SocialPlatform.WeiXin, accessTokenMap);
+
+        return socialUserInfo;
+    }
+
+
     public static SocialUserInfo getWeiXinUserInfo(String appid, String appSecret, String code) {
         SocialUserInfo userInfo = getWeiXinUid(appid, appSecret, code);
+        getWeiXinUserInfo(userInfo, appid);
+        return userInfo;
+    }
+
+    public static SocialUserInfo getWeiXinUserInfo(String appid, String code, String componentAppId, String componentAccessToken) {
+        SocialUserInfo userInfo = getWeiXinUid(appid, code, componentAppId, componentAccessToken);
+        userInfo = getWeiXinUserInfo(userInfo, appid);
+        return userInfo;
+    }
+
+    /**
+     * 获取微信用户信息
+     *
+     * @param userInfo 用户信息对象
+     * @param appid    公众号appid
+     * @author Zhu Kaixiao
+     * @date 2020/8/28 15:12
+     */
+    private static SocialUserInfo getWeiXinUserInfo(SocialUserInfo userInfo, String appid) {
         String userInfoUrl = String.format(WEIXIN_USER_INFO_URL, userInfo.getAccessToken(), appid, userInfo.getUid());
         String userInfoRet = HttpUtil.get(userInfoUrl);
         Map<String, Object> userInfoMap = JSONObject.parseObject(userInfoRet, HashMap.class);
@@ -88,6 +151,7 @@ public class SocialUtil {
         userInfo.setHeadImg(userInfoMap.get("headimgurl").toString());
         return userInfo;
     }
+
 
     public static SocialUserInfo getQqUid(String appid, String secret, String code, String redirectUri) {
         // 1. 获取token
@@ -206,7 +270,6 @@ public class SocialUtil {
      * @param appSecret
      * @param code
      * @param redirectUri
-     * @return com.jeecms.market.utils.social.SocialUserInfo
      * @author Zhu Kaixiao
      * @date 2020/8/12 16:20
      */
