@@ -15,6 +15,43 @@ import java.util.stream.Collectors;
  */
 public class CollectionUtil extends cn.hutool.core.collection.CollectionUtil {
 
+    @FunctionalInterface
+    public interface HashCodeCalculator<T> {
+
+        /**
+         * 计算指定对象的hashCode，可以与该对象实际的hashCode方法不同，用在特定场景下的hashCode计算
+         * 实现不同的业务， 比如自定义去重
+         *
+         * @param obj 对象
+         * @return int 该对象的自定义hashCode值
+         */
+        int calc(T obj);
+    }
+
+    /**
+     * 去重
+     *
+     * @param list
+     * @param hashCodeCalculator
+     * @return java.util.List<T>
+     */
+    public static <T> List<T> distinct(List<T> list, HashCodeCalculator<T> hashCodeCalculator) {
+        if (isEmpty(list)) {
+            return list;
+        }
+        Iterator<T> iterator = list.iterator();
+        Set<Integer> hashCodeSet = new HashSet<>();
+        while (iterator.hasNext()) {
+            int hashCode = hashCodeCalculator.calc(iterator.next());
+            if (hashCodeSet.contains(hashCode)) {
+                iterator.remove();
+            } else {
+                hashCodeSet.add(hashCode);
+            }
+        }
+        return list;
+    }
+
     /**
      * 将集合中的元素的位置打乱
      * @param list
