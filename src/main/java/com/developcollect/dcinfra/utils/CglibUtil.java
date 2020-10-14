@@ -53,26 +53,38 @@ public class CglibUtil {
      * @date 2020/8/26 10:22
      */
     public static <T> T proxy(T target, MethodInterceptor methodInterceptor) {
-        // 创建Enhancer对象
-        Enhancer enhancer = new Enhancer();
-        // 设置目标类的字节码文件
-        enhancer.setSuperclass(target.getClass());
-        // 设置回调函数
-        enhancer.setCallback(methodInterceptor);
-
-        // 这里的creat方法就是正式创建代理类对象
-        // todo 自动判断使用哪个构造方法
-        T proxy = (T) enhancer.create();
-
+        if (target instanceof Class) {
+            return proxy((Class<T>) target, methodInterceptor);
+        }
+        T proxy = (T) proxy(target.getClass(), methodInterceptor);
         // 复制原有属性到代理对象
         BeanUtil.copyProperties(target, proxy);
         return proxy;
     }
 
 
-    private static void test() {
+    /**
+     * 生成动态代理
+     *
+     * @param clazz
+     * @param methodInterceptor
+     * @return T 类型
+     * @author zak
+     * @date 2020/8/26 10:22
+     */
+    public static <T> T proxy(Class<T> clazz, MethodInterceptor methodInterceptor) {
+        // 创建Enhancer对象
+        Enhancer enhancer = new Enhancer();
+        // 设置目标类的字节码文件
+        enhancer.setSuperclass(clazz);
+        // 设置回调函数
+        enhancer.setCallback(methodInterceptor);
 
+        // 这里的creat方法就是正式创建代理类对象
+        T proxy = (T) enhancer.create();
+        return proxy;
     }
+
 
     private static class DynamicBean {
         /**
