@@ -1,6 +1,11 @@
 package com.developcollect.dcinfra.utils;
 
 
+import java.beans.Introspector;
+import java.io.Serializable;
+import java.lang.invoke.SerializedLambda;
+import java.lang.reflect.Method;
+
 /**
  * lambda工具类
  *
@@ -85,6 +90,46 @@ public class LambdaUtil {
     public interface DoThrowWrapper<T> {
         T get() throws Throwable;
     }
+
+
+    /**
+     * 获取传入的lambda表达式的名字
+     * 比如有个方法为{@code fun(SerializableSupplier supplier)}, 在调用时为{@code fun(obj::getClass)}
+     * 那么通过该方法就能得到‘getClass’名字
+     *
+     * @param lambda
+     * @return lambda表达式原始方法名
+     * @author zak
+     */
+    public static String getOriginName(Serializable lambda) {
+        try {
+            Method writeReplace = lambda.getClass().getDeclaredMethod("writeReplace");
+            writeReplace.setAccessible(true);
+            SerializedLambda serializedLambda = (SerializedLambda) writeReplace.invoke(lambda);
+            String getter = serializedLambda.getImplMethodName();
+            return getter;
+        } catch (Exception e) {
+            throw new IllegalArgumentException(e);
+        }
+    }
+
+    /**
+     * 如果传入的lambda是一个get或set方法，那么通过这个方法的名字获取原始字段的名字
+     *
+     * @param lambda
+     * @return lambda表达式原始字段
+     * @author zak
+     */
+    public static String getOriginFieldName(Serializable lambda) {
+        String originName = getOriginName(lambda);
+        if (originName.length() < 4 && !originName.startsWith("get") && !originName.startsWith("set")) {
+            throw new IllegalArgumentException("origin method is not a getter or a setter");
+        }
+        String fieldName = Introspector.decapitalize(originName.substring(3));
+        return fieldName;
+    }
+
+
 }
 
 
