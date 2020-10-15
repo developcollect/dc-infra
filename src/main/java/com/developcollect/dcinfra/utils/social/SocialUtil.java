@@ -10,7 +10,7 @@ import java.util.Map;
 /**
  * 第三方账户工具类
  *
- * @author Zhu Kaixiao
+ * @author zak
  * @version 1.0
  */
 @Slf4j
@@ -36,7 +36,7 @@ public class SocialUtil {
      * @param appid
      * @param appSecret
      * @param code
-     * @author Zhu Kaixiao
+     * @author zak
      * @date 2020/6/28 15:19
      */
     public static SocialUserInfo getWeiXinUid(String appid, String appSecret, String code) {
@@ -78,7 +78,7 @@ public class SocialUtil {
      * @param code                 授权码
      * @param componentAppId       开放平台appid
      * @param componentAccessToken 开放平台token
-     * @author Zhu Kaixiao
+     * @author zak
      * @date 2020/8/28 15:05
      */
     public static SocialUserInfo getWeiXinUid(String appid, String code, String componentAppId, String componentAccessToken) {
@@ -132,7 +132,7 @@ public class SocialUtil {
      *
      * @param userInfo 用户信息对象
      * @param appid    公众号appid
-     * @author Zhu Kaixiao
+     * @author zak
      * @date 2020/8/28 15:12
      */
     private static SocialUserInfo getWeiXinUserInfo(SocialUserInfo userInfo, String appid) {
@@ -270,7 +270,7 @@ public class SocialUtil {
      * @param appSecret
      * @param code
      * @param redirectUri
-     * @author Zhu Kaixiao
+     * @author zak
      * @date 2020/8/12 16:20
      */
     public static SocialUserInfo getWeiBoUserInfo(String appid, String appSecret, String code, String redirectUri) {
