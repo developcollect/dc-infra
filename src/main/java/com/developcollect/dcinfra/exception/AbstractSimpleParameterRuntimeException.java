@@ -30,13 +30,8 @@ public abstract class AbstractSimpleParameterRuntimeException extends RuntimeExc
     }
 
     public AbstractSimpleParameterRuntimeException(String format, Object... params) {
-        super(StrUtil.format(format, params), mayThrowable(params));
+        super(StrUtil.format(format, params), IException.mayThrowable(params));
     }
 
-    private static Throwable mayThrowable(Object... params) {
-        if (params.length > 0 && params[params.length - 1] instanceof Throwable) {
-            return (Throwable) params[params.length - 1];
-        }
-        return null;
-    }
+
 }
