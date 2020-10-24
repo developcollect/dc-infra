@@ -2,6 +2,7 @@ package com.developcollect.dcinfra.utils;
 
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.http.HttpRequest;
+import cn.hutool.http.HttpUtil;
 import com.alibaba.fastjson.JSONObject;
 import lombok.extern.slf4j.Slf4j;
 
@@ -32,10 +33,6 @@ public class NetUtil extends cn.hutool.core.net.NetUtil {
      */
     public static boolean isInnerIP(String ip) {
         if ("localhost".equalsIgnoreCase(ip)) {
-            return true;
-        }
-        // 后续再加上ipv6相关工具  目前就直接硬编码判断一下
-        if ("0:0:0:0:0:0:0:1".equals(ip)) {
             return true;
         }
         return cn.hutool.core.net.NetUtil.isInnerIP(ip);
@@ -71,8 +68,81 @@ public class NetUtil extends cn.hutool.core.net.NetUtil {
      * @date 2020/3/23 14:48
      */
     public static String getInternetIp() {
+        String ip;
+
+        ip = getInternetIp1();
+        if (ip != null) {
+            return ip;
+        }
+
+        ip = getInternetIp5();
+        if (ip != null) {
+            return ip;
+        }
+
+        ip = getInternetIp2();
+        if (ip != null) {
+            return ip;
+        }
+
+        ip = getInternetIp3();
+        if (ip != null) {
+            return ip;
+        }
+
+        ip = getInternetIp4();
+        if (ip != null) {
+            return ip;
+        }
+        return null;
+    }
+
+    private static String getInternetIp1() {
+        String ip = null;
         try {
-            //爬取的网站是百度搜索ip时排名第一的那个
+            String post = HttpUtil.post("http://pv.sohu.com/cityjson?ie=utf-8", "");
+            JSONObject jo = JSONObject.parseObject(post.substring(19, post.length() - 1));
+            ip = (String) jo.get("cip");
+        } catch (Exception e) {
+        }
+        return ip;
+    }
+
+    private static String getInternetIp2() {
+        String ip = null;
+        try {
+            ip = HttpUtil.get("http://ip.42.pl/raw");
+        } catch (Exception e) {
+        }
+        return ip;
+    }
+
+    private static String getInternetIp3() {
+        String ip = null;
+        try {
+            String ret = HttpUtil.get("http://httpbin.org/ip");
+            JSONObject jo = JSONObject.parseObject(ret);
+            ip = jo.getString("origin");
+        } catch (Exception e) {
+        }
+        return ip;
+    }
+
+    private static String getInternetIp4() {
+        String ip = null;
+        try {
+            String ret = HttpUtil.get("https://api.ipify.org/?format=json");
+            JSONObject jo = JSONObject.parseObject(ret);
+            ip = jo.getString("ip");
+        } catch (Exception e) {
+        }
+        return ip;
+    }
+
+    private static String getInternetIp5() {
+        String ip = null;
+        try {
+            // 这个网站可能每年的域名都会变
             URL url = new URL("http://202020.ip138.com");
             URLConnection urlconn = url.openConnection();
             try (BufferedReader br = new BufferedReader(new InputStreamReader(urlconn.getInputStream()))) {
@@ -81,17 +151,16 @@ public class NetUtil extends cn.hutool.core.net.NetUtil {
                 while ((buf = br.readLine()) != null) {
                     sb.append(buf);
                 }
-                final Matcher matcher = IP_PATTERN.matcher(sb);
+                Matcher matcher = IP_PATTERN.matcher(sb);
                 if (matcher.find()) {
-                    return matcher.group(1);
+                    ip = matcher.group(1);
                 }
             }
         } catch (Exception e) {
-            log.debug("获取外网ip失败", e);
         }
-        // 可能当前断网, 或者网站无法访问, 或者网页信息格式改变
-        return null;
+        return ip;
     }
+
 
 
     /**
@@ -111,9 +180,9 @@ public class NetUtil extends cn.hutool.core.net.NetUtil {
                     .body();
             final JSONObject jo = JSONObject.parseObject(body);
             if (jo.getIntValue("status") == 0) {
-                final JSONObject result = jo.getJSONObject("result");
-                final JSONObject adInfo = result.getJSONObject("ad_info");
-                final String location = Arrays.asList(
+                JSONObject result = jo.getJSONObject("result");
+                JSONObject adInfo = result.getJSONObject("ad_info");
+                String location = Arrays.asList(
                         adInfo.getString("nation"),
                         adInfo.getString("province"),
                         adInfo.getString("city"),

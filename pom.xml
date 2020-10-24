@@ -6,7 +6,7 @@
 
     <groupId>com.developcollect</groupId>
     <artifactId>dc-infra</artifactId>
-    <version>1.0.6</version>
+    <version>1.0.7-SNAPSHOT</version>
 
 
     <name>dc-infra</name>
@@ -229,6 +229,7 @@
 
     <build>
         <plugins>
+
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
@@ -253,7 +254,14 @@
                     </execution>
                 </executions>
             </plugin>
-
+            <!--            <plugin>-->
+            <!--                <groupId>org.apache.maven.plugins</groupId>-->
+            <!--                <artifactId>maven-resources-plugin</artifactId>-->
+            <!--                <version>2.3</version>-->
+            <!--                <configuration>-->
+            <!--                    <includeEmptyDirs>true</includeEmptyDirs>-->
+            <!--                </configuration>-->
+            <!--            </plugin>-->
         </plugins>
     </build>
 
@@ -336,6 +344,8 @@
                             <autoReleaseAfterClose>true</autoReleaseAfterClose>
                         </configuration>
                     </plugin>
+
+
                 </plugins>
             </build>
         </profile>
