@@ -47,4 +47,17 @@ public class URLUtil extends cn.hutool.core.util.URLUtil {
         return sb.toString();
     }
 
+    /**
+     * 从url中获取文件名，也就是获取url中最后一个/后面的不带参数的值
+     *
+     * @param uriStr
+     * @return java.lang.String
+     * @author Zhu Kaixiao
+     * @date 2020/10/26 10:23
+     */
+    public static String getFilename(String uriStr) {
+        String path = getPath(uriStr);
+        return path.substring(path.lastIndexOf("/"));
+    }
+
 }

@@ -6,7 +6,7 @@
 
     <groupId>com.developcollect</groupId>
     <artifactId>dc-infra</artifactId>
-    <version>1.0.7-SNAPSHOT</version>
+    <version>1.0.7</version>
 
 
     <name>dc-infra</name>
