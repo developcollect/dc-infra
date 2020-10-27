@@ -3,6 +3,7 @@ package com.developcollect.dcinfra.utils;
 import cn.hutool.core.io.IORuntimeException;
 import cn.hutool.core.io.IoUtil;
 import cn.hutool.core.util.ArrayUtil;
+import com.google.common.collect.Sets;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 
@@ -837,6 +838,65 @@ public class FileUtil extends cn.hutool.core.io.FileUtil {
     public static String relaPath(File parent, File child) {
         String parentAbsolutePath = parent.getAbsolutePath();
         return child.getAbsolutePath().substring(parentAbsolutePath.length());
+    }
+
+
+    /**
+     * 同步源文件到目标文件
+     * 或者 同步源文件夹到目标文件夹
+     *
+     * @param source
+     * @param target
+     * @author Zhu Kaixiao
+     * @date 2020/10/27 10:05
+     */
+    public static void sync(File source, File target) {
+        if (source.isDirectory() && target.isDirectory()) {
+            Set<String> sourceFiles = Sets.newHashSet(source.list());
+            Set<String> targetFiles = Sets.newHashSet(target.list());
+
+            // remove files from target that are not in source
+            for (String targetFile : targetFiles) {
+                if (!sourceFiles.contains(targetFile)) {
+                    del(new File(target, targetFile));
+                }
+            }
+
+            for (String sourceFile : sourceFiles) {
+                File file = new File(source, sourceFile);
+                File file2 = new File(target, sourceFile);
+                if (file.isFile()) {
+                    copyIfChanged(file, file2);
+                } else {
+                    file2.mkdir();
+                    sync(file, file2);
+                }
+            }
+        } else if (source.isFile() && target.isFile()) {
+            copyIfChanged(source, target);
+        }
+    }
+
+    /**
+     * 复制源文件到目标文件，如果目标文件不存在，直接复制
+     * 如果目标文件相对源文件发生变动，用源文件覆盖，否则不做任何操作
+     *
+     * @param source
+     * @param target
+     * @author Zhu Kaixiao
+     * @date 2020/10/27 10:02
+     */
+    private static void copyIfChanged(File source, File target) {
+        if (target.exists()) {
+            if (source.length() == target.length() && checksumCRC32(source) == checksumCRC32(target)) {
+                return;
+            } else {
+                target.delete();
+            }
+        }
+        if (!source.renameTo(target)) {
+            move(source, target, true);
+        }
     }
 
 }
