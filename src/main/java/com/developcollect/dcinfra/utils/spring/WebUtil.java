@@ -3,12 +3,16 @@ package com.developcollect.dcinfra.utils.spring;
 import cn.hutool.core.io.IoUtil;
 import cn.hutool.core.util.CharsetUtil;
 import cn.hutool.core.util.ReflectUtil;
-import cn.hutool.core.util.StrUtil;
 import cn.hutool.extra.servlet.ServletUtil;
-import lombok.extern.slf4j.Slf4j;
+import com.google.common.net.HttpHeaders;
+import org.apache.commons.lang3.ArrayUtils;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.Validate;
+import org.slf4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
+import org.springframework.mobile.device.Device;
+import org.springframework.mobile.device.DeviceUtils;
 import org.springframework.stereotype.Component;
 import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.DispatcherServlet;
@@ -18,139 +22,48 @@ import org.springframework.web.servlet.handler.AbstractUrlHandlerMapping;
 import org.springframework.web.servlet.mvc.condition.PatternsRequestCondition;
 import org.springframework.web.servlet.mvc.method.RequestMappingInfo;
 
-import javax.annotation.PostConstruct;
 import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.BufferedReader;
+import java.io.UnsupportedEncodingException;
+import java.net.URLDecoder;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.*;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * @author zak
  * @since 1.0.0
  */
-@Slf4j
 @Component
 @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
 @SuppressWarnings("SpringJavaInjectionPointsAutowiringInspection")
-public class SpringMvcUtil {
+public class WebUtil {
 
-    @Autowired
-    private HttpServletResponse response;
-    @Autowired
-    private HttpServletRequest request;
-
-
-
-    @Value("${spring.application.name}")
-    private String applicationName;
-
+    private static final Logger log = org.slf4j.LoggerFactory.getLogger(WebUtil.class);
     private static HttpServletResponse RESPONSE;
     private static HttpServletRequest REQUEST;
-    private static String APPLICATION_NAME;
 
+    public static final int PORT_DEF = 80;
 
-    static ThreadLocal<String> mappingThreadLocal = new ThreadLocal<>();
+    private static final String CURR_MAPPING_PATH_ATTRIBUTE_NAME = "currMappingPath";
 
-
-    @PostConstruct
-    private void init() {
+    @Autowired
+    private void init(
+            HttpServletRequest request,
+            HttpServletResponse response) {
         REQUEST = request;
         RESPONSE = response;
-        APPLICATION_NAME = applicationName.toUpperCase();
     }
 
-
-
-
-
-//    public static String getClientId(HttpServletRequest request) {
-//        return getClientId(getToken(request));
-//    }
-
-//    public static String getClientId(String token) {
-//        Map<String, Claim> claims = JwtUtil.getClaims(token);
-//        String clientId = Optional.ofNullable(claims)
-//                .map(c -> c.get("client_id"))
-//                .map(Claim::asString)
-//                .orElse(null);
-//        return clientId;
-//    }
 
     public static String getMethod(HttpServletRequest request) {
         return request.getMethod().toUpperCase();
     }
-
-    public static void addCookie(String key, String value) {
-        addCookie(key, value, "/");
-    }
-
-    public static void addCookie(String key, String value, String path) {
-        addCookie(key, value, path, null);
-    }
-
-    public static void addCookie(String key, String value, String path, Integer maxAge) {
-        Cookie cookie = new Cookie(key, value);
-        cookie.setPath(path);
-        cookie.setMaxAge(maxAge);
-        addCookie(cookie);
-    }
-
-    public static void addCookie(String key, String value, Integer maxAge) {
-        addCookie(key, value, "/", maxAge);
-    }
-
-    public static void addCookie(String key, String value, Duration duration) {
-        Integer maxAge = duration == null ? null : (int) (duration.toMillis() / 1000);
-        addCookie(key, value, "/", maxAge);
-    }
-
-    public static void addCookie(Cookie cookie) {
-        if (StrUtil.isBlank(cookie.getPath())) {
-            cookie.setPath("/");
-        }
-        getResponse().addCookie(cookie);
-    }
-
-    public static String getCookie(String key) {
-        if (StrUtil.isBlank(key)) {
-            return null;
-        }
-        Cookie[] cookies = getRequest().getCookies();
-        if (cookies == null) {
-            return null;
-        }
-        for (Cookie cookie : cookies) {
-            if (cookie.getName().equals(key)) {
-                return cookie.getValue();
-            }
-        }
-        return null;
-    }
-
-    public static void delCookie(String key) {
-        if (StrUtil.isBlank(key)) {
-            return;
-        }
-        Cookie[] cookies = getRequest().getCookies();
-        if (cookies == null) {
-            return;
-        }
-        for (Cookie cookie : cookies) {
-            if (cookie.getName().equals(key)) {
-                cookie.setMaxAge(0);
-                cookie.setValue(null);
-                addCookie(cookie);
-                return;
-            }
-        }
-        return;
-    }
-
-
 
 
     /**
@@ -160,7 +73,7 @@ public class SpringMvcUtil {
      *
      * @param
      * @return javax.servlet.http.HttpServletRequest
-     * @author zak
+     * @author Zhu Kaixiao
      * @date 2019/10/28 11:37
      */
     public static HttpServletRequest getRequest() {
@@ -175,7 +88,7 @@ public class SpringMvcUtil {
      *
      * @param
      * @return javax.servlet.http.HttpServletRequest
-     * @author zak
+     * @author Zhu Kaixiao
      * @date 2019/10/28 11:37
      */
     public static HttpServletResponse getResponse() {
@@ -186,7 +99,7 @@ public class SpringMvcUtil {
      * 获取当前接口的ContextPath
      *
      * @return java.lang.String
-     * @author zak
+     * @author Zhu Kaixiao
      * @date 2020/6/17 15:21
      */
     public static String currContextPath() {
@@ -195,18 +108,26 @@ public class SpringMvcUtil {
 
     /**
      * 获取当前接口的映射路径
+     * 例如：接口是 /admin/users/{id:\\d+}
+     *       请求是 /admin/users/1234
+     *   那么该方法返回的是/admin/users/{id}
      *
      * @return java.lang.String
-     * @author zak
+     * @author Zhu Kaixiao
      * @date 2020/6/17 15:22
      */
     public static String currMappingPath() {
-        if (mappingThreadLocal.get() == null) {
+        return getMappingPath(getRequest());
+    }
+
+    public static String getMappingPath(HttpServletRequest request) {
+        String attribute = (String) request.getAttribute(CURR_MAPPING_PATH_ATTRIBUTE_NAME);
+        if (StringUtils.isBlank(attribute)) {
             String mappingPattern = null;
             Map<String, DispatcherServlet> dispatcherServletMap = SpringUtil.getBeansOfType(DispatcherServlet.class);
             for (DispatcherServlet dispatcherServlet : dispatcherServletMap.values()) {
                 List<HandlerMapping> handlerMappings = dispatcherServlet.getHandlerMappings();
-                mappingPattern = fetchMappingPattern(handlerMappings, getRequest());
+                mappingPattern = fetchMappingPattern(handlerMappings, request);
                 if (mappingPattern != null) {
                     break;
                 }
@@ -214,32 +135,32 @@ public class SpringMvcUtil {
             if (mappingPattern == null) {
                 mappingPattern = currServletPath();
             }
-            mappingThreadLocal.set(mappingPattern);
+            // 去除path参数中的正则表达式
+            // 例子：/xxx/ddd/{id:\\d+}/{name:\\w+}  ==> /xxx/ddd/{id}/{name}
+            mappingPattern = mappingPattern.replaceAll("(?<=\\{)(.*?):.*?(?=})", "$1");
+            request.setAttribute(CURR_MAPPING_PATH_ATTRIBUTE_NAME, mappingPattern);
+            attribute = mappingPattern;
         }
-        return mappingThreadLocal.get();
+        return attribute;
     }
 
+
+    /**
+     * 获取接口含模块名的映射路径
+     *
+     * @return java.lang.String
+     * @author Zhu Kaixiao
+     * @date 2020/6/17 15:22
+     */
     public static String getModuleMappingPath(HttpServletRequest request) {
-        String mappingPattern = null;
-        Map<String, DispatcherServlet> dispatcherServletMap = SpringUtil.getBeansOfType(DispatcherServlet.class);
-        for (DispatcherServlet dispatcherServlet : dispatcherServletMap.values()) {
-            List<HandlerMapping> handlerMappings = dispatcherServlet.getHandlerMappings();
-            mappingPattern = fetchMappingPattern(handlerMappings, request);
-            if (mappingPattern != null) {
-                break;
-            }
-        }
-        if (mappingPattern == null) {
-            mappingPattern = currServletPath();
-        }
-        return currModulePrefix() + mappingPattern;
+        return currModulePrefix() + getMappingPath(request);
     }
 
     /**
      * 获取当前接口含模块名的映射路径
      *
      * @return java.lang.String
-     * @author zak
+     * @author Zhu Kaixiao
      * @date 2020/6/17 15:22
      */
     public static String currModuleMappingPath() {
@@ -253,7 +174,7 @@ public class SpringMvcUtil {
      *
      * @param handlerMappings
      * @return java.lang.String
-     * @author zak
+     * @author Zhu Kaixiao
      * @date 2020/6/17 14:16
      */
     private static String fetchMappingPattern(List<HandlerMapping> handlerMappings, HttpServletRequest request) {
@@ -328,7 +249,7 @@ public class SpringMvcUtil {
      *
      * @param
      * @return java.lang.String
-     * @author zak
+     * @author Zhu Kaixiao
      * @date 2019/11/26 15:16
      */
     public static String currServletPath() {
@@ -339,9 +260,10 @@ public class SpringMvcUtil {
     /**
      * 获取当前访问的接口
      * 因为前端调用的接口要经过网关转发, 所以实际访问的接口前面有一个当前服务的名称
+     *
      * @param
      * @return java.lang.String
-     * @author zak
+     * @author Zhu Kaixiao
      * @date 2020/6/17 15:23
      */
     public static String currModulePath() {
@@ -352,17 +274,18 @@ public class SpringMvcUtil {
      * 获取当前服务的前缀
      *
      * @return java.lang.String
-     * @author zak
+     * @author Zhu Kaixiao
      * @date 2020/6/17 15:23
      */
     public static String currModulePrefix() {
-        return "/" + APPLICATION_NAME;
+        return "/" + SpringUtil.getApplicationName();
     }
 
     /**
      * 获取当前接口的调用方法
+     *
      * @return java.lang.String
-     * @author zak
+     * @author Zhu Kaixiao
      * @date 2020/6/17 15:23
      */
     public static String currMethod() {
@@ -373,7 +296,7 @@ public class SpringMvcUtil {
 //     * 获取当前的token
 //     *
 //     * @return java.lang.String
-//     * @author zak
+//     * @author Zhu Kaixiao
 //     * @date 2020/6/17 15:23
 //     */
 //    public static String currToken() {
@@ -383,20 +306,48 @@ public class SpringMvcUtil {
 //    /**
 //     * 获取当前的clientId
 //     * 这是指的Oauth2中的clientId
+//     *
 //     * @return java.lang.String
-//     * @author zak
+//     * @author Zhu Kaixiao
 //     * @date 2020/6/17 15:23
 //     */
 //    public static String currClientId() {
 //        return getClientId(getRequest());
 //    }
 
+//    /**
+//     * 获取客户端id
+//     * 这里的客户端id是指的使用标准oauth2时从token中提取出的客户端id
+//     *
+//     * @param request
+//     * @return java.lang.String
+//     * @author Zhu Kaixiao
+//     * @date 2020/10/20 11:00
+//     */
+//    public static String getClientId(HttpServletRequest request) {
+//        return getClientId(getToken(request));
+//    }
+
+//    /**
+//     * 获取客户端id
+//     * 这里的客户端id是指的使用标准oauth2时从token中提取出的客户端id
+//     *
+//     * @param token
+//     * @return java.lang.String
+//     * @author Zhu Kaixiao
+//     * @date 2020/10/20 11:00
+//     */
+//    public static String getClientId(String token) {
+//        return TokenUtil.getString("client_id", token);
+//    }
+
 
 //    /**
 //     * 从请求中获取token
+//     *
 //     * @param request
 //     * @return java.lang.String
-//     * @author zak
+//     * @author Zhu Kaixiao
 //     * @date 2020/6/17 15:24
 //     */
 //    public static String getToken(HttpServletRequest request) {
@@ -404,12 +355,12 @@ public class SpringMvcUtil {
 //        String authToken = null;
 //
 //        try {
-//            if (StrUtil.isNotBlank(authorization)) {
+//            if (StringUtils.isNotBlank(authorization)) {
 //                authToken = TokenUtil.getTokenFromAuthorization(authorization);
 //            }
-//            if (StrUtil.isBlank(authToken)) {
+//            if (StringUtils.isBlank(authToken)) {
 //                String access_token = request.getParameter("access_token");
-//                if (StrUtil.isNotBlank(access_token)) {
+//                if (StringUtils.isNotBlank(access_token)) {
 //                    authToken = access_token;
 //                }
 //            }
@@ -423,18 +374,26 @@ public class SpringMvcUtil {
 
     /**
      * 获取当前请求的RequestBody
+     *
      * @return java.lang.String
-     * @author zak
+     * @author Zhu Kaixiao
      * @date 2020/6/17 15:24
      */
     public static String currRequestBody() {
         return fetchRequestBody(getRequest());
     }
 
+    /**
+     * 提取请求的body
+     *
+     * @param request
+     * @return java.lang.String
+     * @author Zhu Kaixiao
+     * @date 2020/10/20 10:49
+     */
     public static String fetchRequestBody(HttpServletRequest request) {
         String body = null;
         try {
-//            String str = httpServletRequest.getQueryString();
             BufferedReader bufferedReader = request.getReader();
             body = IoUtil.read(bufferedReader);
         } catch (Exception e) {
@@ -442,24 +401,47 @@ public class SpringMvcUtil {
         return body;
     }
 
-//    public static void print() {
-//        try {
-//            HttpServletRequest httpServletRequest = getRequest();
-//
-//            String str = httpServletRequest.getQueryString();
-//            BufferedReader bufferedReader = httpServletRequest.getReader();
-//            String bodyStr = IoUtil.read(bufferedReader);
-//            System.out.println("bodyStr = " + bodyStr);
-//        } catch (Exception e) {
-//            log.info("请求参数不合法");
-//            e.printStackTrace();
-//        }
-//    }
 
+    /**
+     * 在控制台打印出请求的信息
+     * 包括请求的地址，参数，body
+     * <p>
+     * 仅用于开发时测试
+     *
+     * @author Zhu Kaixiao
+     * @date 2020/10/20 10:43
+     */
+    public static void print() {
+        try {
+            HttpServletRequest request = getRequest();
+
+            System.out.println("URL: " + request.getRequestURL());
+            System.out.println("QUERY: " + request.getQueryString());
+            System.out.println("BODY: " + IoUtil.read(request.getReader()));
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+
+    /**
+     * 获取当前请求的客户端ip
+     *
+     * @return 客户端ip
+     * @author Zhu Kaixiao
+     * @date 2020/10/20 10:42
+     */
     public static String getClientIP() {
         return getClientIP(getRequest());
     }
 
+    /**
+     * 获取指定请求的客户端ip
+     *
+     * @return 客户端ip
+     * @author Zhu Kaixiao
+     * @date 2020/10/20 10:42
+     */
     public static String getClientIP(HttpServletRequest request) {
         return ServletUtil.getClientIP(request);
     }
@@ -632,4 +614,313 @@ public class SpringMvcUtil {
     public static boolean isMultipart() {
         return ServletUtil.isMultipart(getRequest());
     }
+
+
+    public static void addCookie(String key, String value) {
+        addCookie(key, value, "/");
+    }
+
+    public static void addCookie(String key, String value, String path) {
+        addCookie(key, value, path, null);
+    }
+
+    public static void addCookie(String key, String value, String path, Integer maxAge) {
+        Cookie cookie = new Cookie(key, value);
+        cookie.setPath(path);
+        cookie.setMaxAge(maxAge);
+        addCookie(cookie);
+    }
+
+    public static void addCookie(String key, String value, Integer maxAge) {
+        addCookie(key, value, "/", maxAge);
+    }
+
+    public static void addCookie(String key, String value, Duration duration) {
+        Integer maxAge = duration == null ? null : (int) (duration.toMillis() / 1000);
+        addCookie(key, value, "/", maxAge);
+    }
+
+    public static void addCookie(Cookie cookie) {
+        if (StringUtils.isBlank(cookie.getPath())) {
+            cookie.setPath("/");
+        }
+        getResponse().addCookie(cookie);
+    }
+
+    public static String getCookie(String key) {
+        if (StringUtils.isBlank(key)) {
+            return null;
+        }
+        Cookie[] cookies = getRequest().getCookies();
+        if (cookies == null) {
+            return null;
+        }
+        for (Cookie cookie : cookies) {
+            if (cookie.getName().equals(key)) {
+                return cookie.getValue();
+            }
+        }
+        return null;
+    }
+
+    public static void delCookie(String key) {
+        if (StringUtils.isBlank(key)) {
+            return;
+        }
+        Cookie[] cookies = getRequest().getCookies();
+        if (cookies == null) {
+            return;
+        }
+        for (Cookie cookie : cookies) {
+            if (cookie.getName().equals(key)) {
+                cookie.setMaxAge(0);
+                cookie.setValue(null);
+                addCookie(cookie);
+                return;
+            }
+        }
+        return;
+    }
+
+
+    // ---- 以下来自jeecms中的RequestUtils
+
+    /**
+     * 获取请求的接口地址，含参数
+     *
+     * @param req
+     * @return java.lang.String
+     * @author Zhu Kaixiao
+     * @date 2020/10/26 15:19
+     */
+    public static String getRequestString(HttpServletRequest req) {
+        return Stream.of(req.getServletPath(), req.getQueryString())
+                .filter(Objects::nonNull)
+                .collect(Collectors.joining("?"));
+    }
+
+    public static String currRequestString() {
+        return getRequestString(getRequest());
+    }
+
+    /**
+     * 设置让浏览器弹出下载对话框的Header.
+     *
+     * @param filename 下载后的文件名.
+     */
+    public static void setDownloadHeader(HttpServletResponse response, String filename) {
+        response.setHeader(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"");
+    }
+
+
+    /**
+     * 获取请求参数map
+     *
+     * @param queryString queryString
+     * @Title: parseQueryString
+     * @return: Map
+     */
+    public static Map<String, String[]> parseQueryString(String queryString) {
+        if (StringUtils.isBlank(queryString)) {
+            return Collections.emptyMap();
+        }
+        Map<String, String[]> queryMap = new TreeMap<String, String[]>();
+        String[] params;
+        /** &被JsoupUtil转移 */
+        if (queryString.indexOf("&amp;") != -1) {
+            params = queryString.split("&amp;");
+        } else {
+            params = queryString.split("&");
+        }
+
+        for (String param : params) {
+            int index = param.indexOf('=');
+            if (index != -1) {
+                String name = param.substring(0, index);
+                // name为空值不保存
+                if (StringUtils.isBlank(name)) {
+                    continue;
+                }
+                String value = param.substring(index + 1);
+                try {
+                    /**URLDecoder: Incomplete trailing escape (%) pattern*/
+                    value = value.replaceAll("%(?![0-9a-fA-F]{2})", "%25");
+                    value = value.replaceAll("\\+", "%2B");
+                    value = URLDecoder.decode(value, "UTF-8");
+                } catch (UnsupportedEncodingException e) {
+                    log.error("never!", e);
+                }
+                if (queryMap.containsKey(name)) {
+                    String[] values = queryMap.get(name);
+                    queryMap.put(name, ArrayUtils.addAll(values, value));
+                } else {
+                    queryMap.put(name, new String[]{value});
+                }
+            }
+        }
+        return queryMap;
+    }
+
+    /**
+     * 获取当前访问URL （含协议、域名、端口号[80端口默认忽略]、项目名）
+     *
+     * @Title: getServerUrl
+     * @param request
+     *            HttpServletRequest
+     * @return: String
+     */
+    public static String getServerUrl(HttpServletRequest request) {
+        // 访问协议
+        String agreement = request.getScheme();
+        // 访问域名
+        String serverName = request.getServerName();
+        // 访问端口号
+        int port = request.getServerPort();
+        // 访问项目名
+        String contextPath = request.getContextPath();
+        String url = "%s://%s%s%s";
+        String portStr = "";
+        if (port != PORT_DEF) {
+            portStr += ":" + port;
+        }
+        return String.format(url, agreement, serverName, portStr, contextPath);
+    }
+
+    public static String getParam(HttpServletRequest request, String name) {
+        String[] values = getParamValues(request, name);
+        return ArrayUtils.isNotEmpty(values) ? StringUtils.join(values, ',') : null;
+    }
+
+    /**
+     * 获取参数值 数组
+     *
+     * @Title getParamValues
+     * @param request
+     *            HttpServletRequest
+     * @param name
+     *            参数值名称
+     * @return String[]
+     */
+    public static String[] getParamValues(HttpServletRequest request, String name) {
+        Validate.notNull(request, "Request must not be null");
+        String qs = request.getQueryString();
+        Map<String, String[]> queryMap = parseQueryString(qs);
+        return getParamValues(request, queryMap, name);
+    }
+
+    /**
+     * 获取参数值 数组
+     *
+     * @Title getParamValues
+     * @param request
+     *            HttpServletRequest
+     * @param queryMap
+     *            Map
+     * @param name
+     *            参数值名称
+     * @return String[]
+     */
+    public static String[] getParamValues(HttpServletRequest request, Map<String, String[]> queryMap, String name) {
+        Validate.notNull(request, "Request must not be null");
+        String[] values = queryMap.get(name);
+        if (values == null) {
+            values = request.getParameterValues(name);
+        }
+        return values;
+    }
+
+    /* 设备识别 */
+
+    public static Device currDevice() {
+        Device currentDevice = DeviceUtils.getRequiredCurrentDevice(getRequest());
+        return currentDevice;
+    }
+
+    /**
+     * 判断当前是否访问pcweb端
+     * 注意：
+     * 这里判断是否访问了pc端资源，而不是判断是否pc设备访问
+     *
+     * @param
+     * @return boolean
+     * @author Zhu Kaixiao
+     * @date 2020/11/4 17:25
+     */
+    public static boolean isPcWeb() {
+        return false;
+    }
+
+    public static boolean isH5() {
+        return false;
+    }
+
+    /**
+     * 判断当前是否是用pc设备(电脑)访问
+     *
+     * @return boolean
+     * @author Zhu Kaixiao
+     * @date 2020/11/4 17:28
+     */
+    public static boolean isPc() {
+        return currDevice().isNormal();
+    }
+
+    /**
+     * 判断当前是否是用平板设备(平板电脑)访问
+     *
+     * @return boolean
+     * @author Zhu Kaixiao
+     * @date 2020/11/4 17:28
+     */
+    public static boolean isTablet() {
+        return currDevice().isTablet();
+    }
+
+    /**
+     * 判断当前是否是用移动设备(手机)访问
+     *
+     * @return boolean
+     * @author Zhu Kaixiao
+     * @date 2020/11/4 17:28
+     */
+    public static boolean isMobile() {
+        return currDevice().isMobile();
+    }
+
+    public static boolean isValidRequestUri(String url) {
+        if (StringUtils.isNotEmpty(url)) {
+            if (hasSpecialChar(url)) {
+                return true;
+            }
+            try {
+                /**尝试decode两次判断是否有特殊字符*/
+                try {
+                    /**URLDecoder: Incomplete trailing escape (%) pattern*/
+                    url = url.replaceAll("%(?![0-9a-fA-F]{2})", "%25");
+                    url = url.replaceAll("\\+", "%2B");
+                    url = URLDecoder.decode(url, "utf-8");
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+                url = url.replaceAll("%(?![0-9a-fA-F]{2})", "%25");
+                url = url.replaceAll("\\+", "%2B");
+                url = URLDecoder.decode(url, "UTF-8");
+                if (hasSpecialChar(url)) {
+                    return true;
+                }
+            } catch (UnsupportedEncodingException e) {
+                e.printStackTrace();
+            }
+
+        }
+        return false;
+    }
+
+    private static boolean hasSpecialChar(String a) {
+        return a.contains("<") || a.contains(">") || a.contains("\"")
+                || a.contains("'") || a.contains(" and ")
+                || a.contains(" or ") || a.contains("1=1") || a.contains("(") || a.contains(")")
+                || a.contains("{") || a.contains("}") || a.contains("[") || a.contains("]");
+    }
+
 }
